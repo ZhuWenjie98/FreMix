@@ -41,17 +41,79 @@ def datamixing(x, lam):
     new_lams = lam * 0.8 + 0.1
     x_flip = x.flip(0).clone()
     for i in range(x.shape[0]):
-        yl, yh, xl, xh = rand_bbox(x.shape, new_lams[i].cpu())
-        bbox_area = (yh - yl) * (xh - xl)
-        new_lams[i] = torch.tensor(1. - bbox_area / float(x.shape[-2] * x.shape[-1])).cuda()
-        x[i:i+1, :, yl:yh, xl:xh] = F.interpolate(x_flip[i:i+1], (yh - yl, xh - xl), mode="bilinear")
+        x[i:i+1,:,:,:],x_flip[i:i+1,:,:,:] = colorful_spectrum_mix(x[i:i+1,:,:,:],x_flip[i:i+1,:,:,:],1,1)
+
+    #for i in range(x.shape[0]):
+    #    yl, yh, xl, xh = rand_bbox(x.shape, new_lams[i].cpu())
+    #    bbox_area = (yh - yl) * (xh - xl)
+    #    new_lams[i] = torch.tensor(1. - bbox_area / float(x.shape[-2] * x.shape[-1])).cuda()
+    #    x[i:i+1, :, yl:yh, xl:xh] = F.interpolate(x_flip[i:i+1], (yh - yl, xh - xl), mode="bilinear")
+        
     # else:
     #     #use cutmix
     #     yl, yh, xl, xh = rand_bbox(x.shape, lam)
     #     bbox_area = (yh - yl) * (xh - xl)
     #     new_lam = 1. - bbox_area / float(x.shape[-2] * x.shape[-1])
-    #     x[:, :, yl:yh, xl:xh] = x.flip(0)[:, :, yl:yh, xl:xh]
+    #     x[:, :, yl:yh, xl:xh] = x.flip(0)[:, :, yl:yh, xl:xh] 
+    #get low and high frequency
+
+
+    # else:
+    #     #use frequency mixup
+
+
+    # else:
+    #     #use cut frequency mix
+
+    # else:
+    #     #use rezie frequency mix
     return x, lam, new_lams
+
+
+def colorful_spectrum_mix(img1, img2, alpha, ratio=1.0):
+    """Input image size: ndarray of [H, W, C]"""
+    lam = np.random.uniform(0, alpha)
+
+    assert img1.shape == img2.shape
+    h, w, c = img1.shape
+    h_crop = int(h * torch.sqrt(ratio))
+    w_crop = int(w * torch.sqrt(ratio))
+    h_start = h // 2 - h_crop // 2
+    w_start = w // 2 - w_crop // 2
+
+    img1_fft = torch.fft.fft2(img1, axes=(0, 1))
+    img2_fft = torch.fft.fft2(img2, axes=(0, 1))
+    img1_abs, img1_pha = torch.abs(img1_fft), torch.angle(img1_fft)
+    img2_abs, img2_pha = torch.abs(img2_fft), torch.angle(img2_fft)
+
+    img1_abs = torch.fft.fftshift(img1_abs, axes=(0, 1))
+    img2_abs = torch.fft.fftshift(img2_abs, axes=(0, 1))
+
+    img1_abs_ = torch.copy(img1_abs)
+    img2_abs_ = torch.copy(img2_abs)
+    ## phase1 + lam * amp2 + (1-lam) * amp1
+    img1_abs[h_start:h_start + h_crop, w_start:w_start + w_crop] = \
+        lam * img2_abs_[h_start:h_start + h_crop, w_start:w_start + w_crop] + (1 - lam) * img1_abs_[
+                                                                                          h_start:h_start + h_crop,
+                                                                                          w_start:w_start + w_crop]
+    ## phase2 + lam * amp1 + (1-lam) * amp2
+    img2_abs[h_start:h_start + h_crop, w_start:w_start + w_crop] = \
+        lam * img1_abs_[h_start:h_start + h_crop, w_start:w_start + w_crop] + (1 - lam) * img2_abs_[
+                                                                                          h_start:h_start + h_crop,
+                                                                                          w_start:w_start + w_crop]
+    img1_abs = torch.fft.ifftshift(img1_abs, axes=(0, 1))
+    img2_abs = torch.fft.ifftshift(img2_abs, axes=(0, 1))
+    img21 = img1_abs * (np.e ** (1j * img1_pha)) 
+    img12 = img2_abs * (np.e ** (1j * img2_pha))
+    img21 = torch.real(torch.fft.ifft2(img21, axes=(0, 1)))
+    img12 = torch.real(torch.fft.ifft2(img12, axes=(0, 1)))
+    img21 = torch.uint8(torch.clip(img21, 0, 255))
+    img12 = torch.uint8(torch.clip(img12, 0, 255))
+
+    return img21, img12
+
+
+    
 
 class MoCo(nn.Module):
     """
