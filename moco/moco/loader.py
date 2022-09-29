@@ -8,7 +8,7 @@ from PIL import Image, ImageFilter, ImageOps
 import math
 import random
 import torchvision.transforms.functional as tf
-
+import builder
 
 class TwoCropsTransform:
     """Take two random crops of one image"""
@@ -20,7 +20,8 @@ class TwoCropsTransform:
     def __call__(self, x):
         im1 = self.base_transform1(x)
         im2 = self.base_transform2(x)
-        return [im1, im2]
+        im1_mix, im2_mix = builder.colorful_spectrum_mix_cpu(im1,im2,1,1)
+        return [im1, im2, im1_mix, im2_mix]
 
 
 class GaussianBlur(object):

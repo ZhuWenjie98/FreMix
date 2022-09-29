@@ -350,11 +350,13 @@ def train(train_loader, model, optimizer, scaler, summary_writer, epoch, args):
         if args.gpu is not None:
             images[0] = images[0].cuda(args.gpu, non_blocking=True)
             images[1] = images[1].cuda(args.gpu, non_blocking=True)
+            images[2] = images[2].cuda(args.gpu, non_blocking=True)
+            images[3] = images[3].cuda(args.gpu, non_blocking=True)
 
         # compute output
         optimizer.zero_grad()
         with torch.cuda.amp.autocast(True):
-            source_loss, mixloss_source, mixloss_mix = model(images[0], images[1], moco_m)
+            source_loss, mixloss_source, mixloss_mix = model(images[0], images[1], images[2], images[3], moco_m)
         scaler.scale(source_loss+mixloss_source+mixloss_mix).backward()
         source_losses.update(source_loss.item(), images[0].size(0))
         mixsource_losses.update(mixloss_source.item(), images[0].size(0))
