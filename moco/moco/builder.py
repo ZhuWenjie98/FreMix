@@ -107,7 +107,7 @@ def colorful_spectrum_mix(img1, img2, alpha, ratio=1.0):
     img21 = img1_abs * (np.e ** (1j * img1_pha)) 
     img12 = img2_abs * (np.e ** (1j * img2_pha))
     img21 = torch.real(torch.fft.ifft2(img21,dim=(1, 2)))
-    img12 = torch.real(torch.fft.ifft2(img2,dim=(1, 2)))
+    img12 = torch.real(torch.fft.ifft2(img12,dim=(1, 2)))
     img21 = torch.clip(img21[0], 0, 255).int()
     img12 = torch.clip(img12[0], 0, 255).int()
 
