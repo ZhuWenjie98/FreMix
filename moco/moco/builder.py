@@ -114,6 +114,51 @@ def colorful_spectrum_mix(img1, img2, alpha, ratio=1.0):
     return img21, img12
 
 
+def colorful_spectrum_mix_cpu(img1, img2, alpha, ratio=1.0):
+    """Input image size: ndarray of [H, W, C]"""
+    lam = np.random.uniform(0, alpha)
+
+    assert img1.shape == img2.shape
+    h, w, c = img1.shape
+    #ratio = torch.tensor(ratio, dtype=torch.int8)
+    h_crop = int(h * np.sqrt(ratio))
+    w_crop = int(w * np.sqrt(ratio))
+    h_start = h // 2 - h_crop // 2
+    w_start = w // 2 - w_crop // 2
+
+    img1_fft = np.fft.fft2(img1, dim=(1,2))
+    img2_fft = np.fft.fft2(img2, dim=(1,2))
+    img1_abs, img1_pha = np.abs(img1_fft), np.angle(img1_fft)
+    img2_abs, img2_pha = np.abs(img2_fft), np.angle(img2_fft)
+
+    img1_abs = np.fft.fftshift(img1_abs, dim=(1, 2))
+    img2_abs = np.fft.fftshift(img2_abs, dim=(1, 2))
+
+    img1_abs_ = np.clone(img1_abs)
+    img2_abs_ = np.clone(img2_abs)
+    ## phase1 + lam * amp2 + (1-lam) * amp1
+    img1_abs[h_start:h_start + h_crop, w_start:w_start + w_crop] = \
+        lam * img2_abs_[h_start:h_start + h_crop, w_start:w_start + w_crop] + (1 - lam) * img1_abs_[
+                                                                                          h_start:h_start + h_crop,
+                                                                                          w_start:w_start + w_crop]
+    ## phase2 + lam * amp1 + (1-lam) * amp2
+    img2_abs[h_start:h_start + h_crop, w_start:w_start + w_crop] = \
+        lam * img1_abs_[h_start:h_start + h_crop, w_start:w_start + w_crop] + (1 - lam) * img2_abs_[
+                                                                                          h_start:h_start + h_crop,
+                                                                                          w_start:w_start + w_crop]
+    img1_abs = np.fft.ifftshift(img1_abs, dim=(1, 2))
+    img2_abs = np.fft.ifftshift(img2_abs, dim=(1, 2))
+    img21 = img1_abs * (np.e ** (1j * img1_pha)) 
+    img12 = img2_abs * (np.e ** (1j * img2_pha))
+    img21 = np.real(np.fft.ifft2(img21,dim=(1, 2)))
+    img12 = np.real(np.fft.ifft2(img12,dim=(1, 2)))
+    img21 = np.uint8(np.clip(img21, 0, 255))
+    img12 = np.uint8(np.clip(img12, 0, 255))
+
+
+    return img21, img12    
+
+
     
 
 class MoCo(nn.Module):
@@ -204,8 +249,8 @@ class MoCo(nn.Module):
         swap = concat_all_gather(swap)
         if swap[0]>0.5:
             x1, x2 = x2, x1
-        x1_mix, lam, new_lam = datamixing(x1.clone(), None)
-        x2_mix, lam, new_lam = datamixing(x2.clone(), lam)
+        #x1_mix, lam, new_lam = datamixing(x1.clone(), None)
+        #x2_mix, lam, new_lam = datamixing(x2.clone(), lam)
 
         q1 = self.predictor(self.base_encoder(x1[bz*rank:bz*(rank+1)]))
         q2_mix = self.predictor(self.base_encoder(x2_mix[bz*rank:bz*(rank+1)]))
