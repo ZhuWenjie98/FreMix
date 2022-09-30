@@ -126,16 +126,16 @@ def colorful_spectrum_mix_cpu(img1, img2, alpha, ratio=1.0):
     h_start = h // 2 - h_crop // 2
     w_start = w // 2 - w_crop // 2
 
-    img1_fft = np.fft.fft2(img1, dim=(1,2))
-    img2_fft = np.fft.fft2(img2, dim=(1,2))
+    img1_fft = np.fft.fft2(img1, axes=(0, 1))
+    img2_fft = np.fft.fft2(img2, axes=(0, 1))
     img1_abs, img1_pha = np.abs(img1_fft), np.angle(img1_fft)
     img2_abs, img2_pha = np.abs(img2_fft), np.angle(img2_fft)
 
-    img1_abs = np.fft.fftshift(img1_abs, dim=(1, 2))
-    img2_abs = np.fft.fftshift(img2_abs, dim=(1, 2))
+    img1_abs = np.fft.fftshift(img1_abs, axes=(1, 2))
+    img2_abs = np.fft.fftshift(img2_abs, axes=(1, 2))
 
-    img1_abs_ = np.clone(img1_abs)
-    img2_abs_ = np.clone(img2_abs)
+    img1_abs_ = np.copy(img1_abs)
+    img2_abs_ = np.copy(img2_abs)
     ## phase1 + lam * amp2 + (1-lam) * amp1
     img1_abs[h_start:h_start + h_crop, w_start:w_start + w_crop] = \
         lam * img2_abs_[h_start:h_start + h_crop, w_start:w_start + w_crop] + (1 - lam) * img1_abs_[
@@ -146,17 +146,17 @@ def colorful_spectrum_mix_cpu(img1, img2, alpha, ratio=1.0):
         lam * img1_abs_[h_start:h_start + h_crop, w_start:w_start + w_crop] + (1 - lam) * img2_abs_[
                                                                                           h_start:h_start + h_crop,
                                                                                           w_start:w_start + w_crop]
-    img1_abs = np.fft.ifftshift(img1_abs, dim=(1, 2))
-    img2_abs = np.fft.ifftshift(img2_abs, dim=(1, 2))
+    img1_abs = np.fft.ifftshift(img1_abs, axes=(1, 2))
+    img2_abs = np.fft.ifftshift(img2_abs, axes=(1, 2))
     img21 = img1_abs * (np.e ** (1j * img1_pha)) 
     img12 = img2_abs * (np.e ** (1j * img2_pha))
-    img21 = np.real(np.fft.ifft2(img21,dim=(1, 2)))
-    img12 = np.real(np.fft.ifft2(img12,dim=(1, 2)))
+    img21 = np.real(np.fft.ifft2(img21,axes=(1, 2)))
+    img12 = np.real(np.fft.ifft2(img12,axes=(1, 2)))
     img21 = np.uint8(np.clip(img21, 0, 255))
     img12 = np.uint8(np.clip(img12, 0, 255))
 
 
-    return img21, img12    
+    return img21, img12, lam    
 
 
     
@@ -231,27 +231,30 @@ class MoCo(nn.Module):
             labels = torch.arange(k.size()[0], dtype=torch.long)[rank*bz:bz*(rank+1)].cuda()
         return nn.CrossEntropyLoss(reduction=redunction)(logits, labels) * (2 * self.T)
 
-    def forward(self, x1, x2, m):
+    def forward(self, x1, x2, x1_mix, x2_mix, lam, m):
         """
         Input:
             x1: first views of images
             x2: second views of images
             m: moco momentum
-        Output:
-            loss
+        Outpiut:
+            li
+            
+            oss
         """
-
         # compute features
         bz, _,_,_ = x1.shape
         rank = torch.distributed.get_rank()
-        x1, x2 = concat_all_gather(x1), concat_all_gather(x2)
+        lam = lam.view(lam.shape[0],1,1,1)
+        x1, x2, x1_mix, x2_mix, lam = concat_all_gather(x1), concat_all_gather(x2), concat_all_gather(x1_mix), concat_all_gather(x2_mix), concat_all_gather(lam)
         swap = torch.rand([1]).cuda()
         swap = concat_all_gather(swap)
         if swap[0]>0.5:
             x1, x2 = x2, x1
+        x1_mix = x1_mix.half()
+        x2_mix = x2_mix.half()
         #x1_mix, lam, new_lam = datamixing(x1.clone(), None)
         #x2_mix, lam, new_lam = datamixing(x2.clone(), lam)
-
         q1 = self.predictor(self.base_encoder(x1[bz*rank:bz*(rank+1)]))
         q2_mix = self.predictor(self.base_encoder(x2_mix[bz*rank:bz*(rank+1)]))
         # part 1
@@ -262,8 +265,8 @@ class MoCo(nn.Module):
             k1_mix = self.momentum_encoder(x1_mix[bz*rank:bz*(rank+1)])
             k2 = self.momentum_encoder(x2[bz*rank:bz*(rank+1)])
         source_loss = self.contrastive_loss(q1, k2, "mean", False)
-        if new_lam is not None:
-            lam = new_lam
+       # if new_lam is not None:
+       #     lam = new_lam
         lam = lam.squeeze()
         mixloss_source = self.contrastive_loss(q2_mix, k1, "none", False).mul(lam[bz*rank:bz*(rank+1)]).mean() + \
                          self.contrastive_loss(q2_mix, k1, "none", True).mul(1.-lam[bz*rank:bz*(rank+1)]).mean()
