@@ -71,24 +71,23 @@ def datamixing(x, lam):
 
 
 def colorful_spectrum_mix(img1, img2, alpha, ratio=1.0):
-    """Input image size: ndarray of [H, W, C]"""
+    """Input image size: ndarray of [C, H, W]"""
     lam = np.random.uniform(0, alpha)
-
     assert img1.shape == img2.shape
-    b, h, w, c = img1.shape
+    b, c, h, w  = img1.shape
     ratio = torch.tensor(ratio, dtype=torch.int8)
     h_crop = int(h * torch.sqrt(ratio))
     w_crop = int(w * torch.sqrt(ratio))
     h_start = h // 2 - h_crop // 2
     w_start = w // 2 - w_crop // 2
 
-    img1_fft = torch.fft.fft2(img1, dim=(1,2))
-    img2_fft = torch.fft.fft2(img2, dim=(1,2))
+    img1_fft = torch.fft.fft2(img1, dim=(2,3))
+    img2_fft = torch.fft.fft2(img2, dim=(2,3))
     img1_abs, img1_pha = torch.abs(img1_fft), torch.angle(img1_fft)
     img2_abs, img2_pha = torch.abs(img2_fft), torch.angle(img2_fft)
 
-    img1_abs = torch.fft.fftshift(img1_abs, dim=(1, 2))
-    img2_abs = torch.fft.fftshift(img2_abs, dim=(1, 2))
+    img1_abs = torch.fft.fftshift(img1_abs, dim=(2, 3))
+    img2_abs = torch.fft.fftshift(img2_abs, dim=(2, 3))
 
     img1_abs_ = torch.clone(img1_abs)
     img2_abs_ = torch.clone(img2_abs)
@@ -102,12 +101,12 @@ def colorful_spectrum_mix(img1, img2, alpha, ratio=1.0):
         lam * img1_abs_[h_start:h_start + h_crop, w_start:w_start + w_crop] + (1 - lam) * img2_abs_[
                                                                                           h_start:h_start + h_crop,
                                                                                           w_start:w_start + w_crop]
-    img1_abs = torch.fft.ifftshift(img1_abs, dim=(1, 2))
-    img2_abs = torch.fft.ifftshift(img2_abs, dim=(1, 2))
+    img1_abs = torch.fft.ifftshift(img1_abs, dim=(2, 3))
+    img2_abs = torch.fft.ifftshift(img2_abs, dim=(2, 3))
     img21 = img1_abs * (np.e ** (1j * img1_pha)) 
     img12 = img2_abs * (np.e ** (1j * img2_pha))
-    img21 = torch.real(torch.fft.ifft2(img21,dim=(1, 2)))
-    img12 = torch.real(torch.fft.ifft2(img12,dim=(1, 2)))
+    img21 = torch.real(torch.fft.ifft2(img21,dim=(2, 3)))
+    img12 = torch.real(torch.fft.ifft2(img12,dim=(2, 3)))
     img21 = torch.clip(img21[0], 0, 255).int()
     img12 = torch.clip(img12[0], 0, 255).int()
 
@@ -115,19 +114,18 @@ def colorful_spectrum_mix(img1, img2, alpha, ratio=1.0):
 
 
 def colorful_spectrum_mix_cpu(img1, img2, alpha, ratio=1.0):
-    """Input image size: ndarray of [H, W, C]"""
+    """Input image size: ndarray of [C, H, W ]"""
     lam = np.random.uniform(0, alpha)
-
     assert img1.shape == img2.shape
-    h, w, c = img1.shape
+    c, h, w = img1.shape
     #ratio = torch.tensor(ratio, dtype=torch.int8)
     h_crop = int(h * np.sqrt(ratio))
     w_crop = int(w * np.sqrt(ratio))
     h_start = h // 2 - h_crop // 2
     w_start = w // 2 - w_crop // 2
 
-    img1_fft = np.fft.fft2(img1, axes=(0, 1))
-    img2_fft = np.fft.fft2(img2, axes=(0, 1))
+    img1_fft = np.fft.fft2(img1, axes=(1, 2))
+    img2_fft = np.fft.fft2(img2, axes=(1, 2))
     img1_abs, img1_pha = np.abs(img1_fft), np.angle(img1_fft)
     img2_abs, img2_pha = np.abs(img2_fft), np.angle(img2_fft)
 
@@ -231,7 +229,8 @@ class MoCo(nn.Module):
             labels = torch.arange(k.size()[0], dtype=torch.long)[rank*bz:bz*(rank+1)].cuda()
         return nn.CrossEntropyLoss(reduction=redunction)(logits, labels) * (2 * self.T)
 
-    def forward(self, x1, x2, x1_mix, x2_mix, lam, m):
+    def forward(self, x1, x2, m):
+   # def forward(self, x1, x2, x1_mix, x2_mix, lam, m):
         """
         Input:
             x1: first views of images
@@ -245,16 +244,17 @@ class MoCo(nn.Module):
         # compute features
         bz, _,_,_ = x1.shape
         rank = torch.distributed.get_rank()
-        lam = lam.view(lam.shape[0],1,1,1)
-        x1, x2, x1_mix, x2_mix, lam = concat_all_gather(x1), concat_all_gather(x2), concat_all_gather(x1_mix), concat_all_gather(x2_mix), concat_all_gather(lam)
+        #lam = lam.view(lam.shape[0],1,1,1)
+        #x1, x2, x1_mix, x2_mix, lam = concat_all_gather(x1), concat_all_gather(x2), concat_all_gather(x1_mix), concat_all_gather(x2_mix), concat_all_gather(lam)
+        x1, x2 = concat_all_gather(x1), concat_all_gather(x2)
         swap = torch.rand([1]).cuda()
         swap = concat_all_gather(swap)
         if swap[0]>0.5:
             x1, x2 = x2, x1
-        x1_mix = x1_mix.half()
-        x2_mix = x2_mix.half()
-        #x1_mix, lam, new_lam = datamixing(x1.clone(), None)
-        #x2_mix, lam, new_lam = datamixing(x2.clone(), lam)
+       # x1_mix = x1_mix.half()
+       # x2_mix = x2_mix.half()
+        x1_mix, lam, new_lam = datamixing(x1.clone(), None)
+        x2_mix, lam, new_lam = datamixing(x2.clone(), lam)
         q1 = self.predictor(self.base_encoder(x1[bz*rank:bz*(rank+1)]))
         q2_mix = self.predictor(self.base_encoder(x2_mix[bz*rank:bz*(rank+1)]))
         # part 1

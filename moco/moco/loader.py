@@ -20,8 +20,10 @@ class TwoCropsTransform:
     def __call__(self, x):
         im1 = self.base_transform1(x)
         im2 = self.base_transform2(x)
-        im1_mix, im2_mix, lam  = builder.colorful_spectrum_mix_cpu(im1,im2,1,1)
-        return [im1, im2, im1_mix, im2_mix, lam]
+        #im1_mix, im2_mix, lam  = builder.colorful_spectrum_mix_cpu(im1,im2,1,1)
+        #return [im1, im2, im1_mix, im2_mix, lam]
+        return [im1, im2]
+
 
 
 class GaussianBlur(object):

@@ -51,7 +51,7 @@ parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
                     help='model architecture: ' +
                         ' | '.join(model_names) +
                         ' (default: resnet50)')
-parser.add_argument('-j', '--workers', default=32, type=int, metavar='N',
+parser.add_argument('-j', '--workers', default=64, type=int, metavar='N',
                     help='number of data loading workers (default: 32)')
 parser.add_argument('--epochs', default=100, type=int, metavar='N',
                     help='number of total epochs to run')
@@ -350,13 +350,14 @@ def train(train_loader, model, optimizer, scaler, summary_writer, epoch, args):
         if args.gpu is not None:
             images[0] = images[0].cuda(args.gpu, non_blocking=True)
             images[1] = images[1].cuda(args.gpu, non_blocking=True)
-            images[2] = images[2].cuda(args.gpu, non_blocking=True)
-            images[3] = images[3].cuda(args.gpu, non_blocking=True)
-            lam = images[4].cuda(args.gpu, non_blocking=True)
+           # images[2] = images[2].cuda(args.gpu, non_blocking=True)
+           # images[3] = images[3].cuda(args.gpu, non_blocking=True)
+           # lam = images[4].cuda(args.gpu, non_blocking=True)
         # compute output
         optimizer.zero_grad()
         with torch.cuda.amp.autocast(True):
-            source_loss, mixloss_source, mixloss_mix = model(images[0], images[1], images[2], images[3], lam, moco_m)
+            #source_loss, mixloss_source, mixloss_mix = model(images[0], images[1], images[2], images[3], lam, moco_m)
+            source_loss, mixloss_source, mixloss_mix = model(images[0], images[1], moco_m)
         scaler.scale(source_loss+mixloss_source+mixloss_mix).backward()
         source_losses.update(source_loss.item(), images[0].size(0))
         mixsource_losses.update(mixloss_source.item(), images[0].size(0))
