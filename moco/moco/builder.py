@@ -229,13 +229,10 @@ class MoCo(nn.Module):
             labels = torch.arange(k.size()[0], dtype=torch.long)[rank*bz:bz*(rank+1)].cuda()
         return nn.CrossEntropyLoss(reduction=redunction)(logits, labels) * (2 * self.T)
 
-<<<<<<< HEAD
-    def forward(self, images1, images2, m):
-    #def forward(self, x1, x2, x1_mix, x2_mix, lam, m):
-=======
     def forward(self, x1, x2, m):
    # def forward(self, x1, x2, x1_mix, x2_mix, lam, m):
->>>>>>> 6e9d9ce71d45157d9169fef14223bd838b6ca29b
+    def forward(self, images1, images2, m):
+    #def forward(self, x1, x2, x1_mix, x2_mix, lam, m):
         """
         Input:
             x1: first views of images
@@ -247,7 +244,11 @@ class MoCo(nn.Module):
             oss
         """
         # compute features
-<<<<<<< HEAD
+        bz, _,_,_ = x1.shape
+        rank = torch.distributed.get_rank()
+        #lam = lam.view(lam.shape[0],1,1,1)
+        #x1, x2, x1_mix, x2_mix, lam = concat_all_gather(x1), concat_all_gather(x2), concat_all_gather(x1_mix), concat_all_gather(x2_mix), concat_all_gather(lam)
+        x1, x2 = concat_all_gather(x1), concat_all_gather(x2)
         bz,_,_,_,_ = images1[0].shape
         rank = torch.distributed.get_rank()
         #lam = lam.view(lam.shape[0],1,1,1)
@@ -257,28 +258,18 @@ class MoCo(nn.Module):
         x1, x2, x1_mix, x2_mix, lam1, lam2 = x1.contiguous(), x2.contiguous(), x1_mix.contiguous(), x2_mix.contiguous(), lam1.contiguous(), lam2.contiguous()
         x1, x2, x1_mix, x2_mix = concat_all_gather(x1), concat_all_gather(x2), concat_all_gather(x1_mix), concat_all_gather(x2_mix)
         lam1, lam2 = concat_all_gather(lam1), concat_all_gather(lam2)
-=======
-        bz, _,_,_ = x1.shape
-        rank = torch.distributed.get_rank()
-        #lam = lam.view(lam.shape[0],1,1,1)
-        #x1, x2, x1_mix, x2_mix, lam = concat_all_gather(x1), concat_all_gather(x2), concat_all_gather(x1_mix), concat_all_gather(x2_mix), concat_all_gather(lam)
-        x1, x2 = concat_all_gather(x1), concat_all_gather(x2)
->>>>>>> 6e9d9ce71d45157d9169fef14223bd838b6ca29b
         swap = torch.rand([1]).cuda()
         swap = concat_all_gather(swap)
         if swap[0]>0.5:
             x1, x2 = x2, x1
-<<<<<<< HEAD
-        #x1_mix = x1_mix.half()
-        #x2_mix = x2_mix.half()
-        #x1_mix, lam, new_lam = datamixing(x1.clone(), None)
-        #x2_mix, lam, new_lam = datamixing(x2.clone(), lam)
-=======
        # x1_mix = x1_mix.half()
        # x2_mix = x2_mix.half()
         x1_mix, lam, new_lam = datamixing(x1.clone(), None)
         x2_mix, lam, new_lam = datamixing(x2.clone(), lam)
->>>>>>> 6e9d9ce71d45157d9169fef14223bd838b6ca29b
+        #x1_mix = x1_mix.half()
+        #x2_mix = x2_mix.half()
+        #x1_mix, lam, new_lam = datamixing(x1.clone(), None)
+        #x2_mix, lam, new_lam = datamixing(x2.clone(), lam)
         q1 = self.predictor(self.base_encoder(x1[bz*rank:bz*(rank+1)]))
         q2_mix = self.predictor(self.base_encoder(x2_mix[bz*rank:bz*(rank+1)]))
         # part 1
@@ -289,7 +280,13 @@ class MoCo(nn.Module):
             k1_mix = self.momentum_encoder(x1_mix[bz*rank:bz*(rank+1)])
             k2 = self.momentum_encoder(x2[bz*rank:bz*(rank+1)])
         source_loss = self.contrastive_loss(q1, k2, "mean", False)
-<<<<<<< HEAD
+       # if new_lam is not None:
+       #     lam = new_lam
+        lam = lam.squeeze()
+        mixloss_source = self.contrastive_loss(q2_mix, k1, "none", False).mul(lam[bz*rank:bz*(rank+1)]).mean() + \
+                         self.contrastive_loss(q2_mix, k1, "none", True).mul(1.-lam[bz*rank:bz*(rank+1)]).mean()
+
+        common = np.minimum(lam[bz*rank:bz*(rank+1)].cpu(), 1-lam[bz*rank:bz*(rank+1)].clone().flip(0).cpu()).cuda()+np.minimum(1-lam[bz*rank:bz*(rank+1)].cpu(), lam[bz*rank:bz*(rank+1)].clone().flip(0).cpu()).cuda()
         #if new_lam is not None:
         #    lam = new_lam
         lam1 = lam1.squeeze()
@@ -298,15 +295,7 @@ class MoCo(nn.Module):
                          self.contrastive_loss(q2_mix, k1, "none", True).mul(1.-lam2[bz*rank:bz*(rank+1)]).mean()
 
         common = np.minimum(lam1[bz*rank:bz*(rank+1)].cpu(), 1-lam1[bz*rank:bz*(rank+1)].clone().flip(0).cpu()).cuda()+np.minimum(1-lam2[bz*rank:bz*(rank+1)].cpu(), lam2[bz*rank:bz*(rank+1)].clone().flip(0).cpu()).cuda()
-=======
-       # if new_lam is not None:
-       #     lam = new_lam
-        lam = lam.squeeze()
-        mixloss_source = self.contrastive_loss(q2_mix, k1, "none", False).mul(lam[bz*rank:bz*(rank+1)]).mean() + \
-                         self.contrastive_loss(q2_mix, k1, "none", True).mul(1.-lam[bz*rank:bz*(rank+1)]).mean()
-
-        common = np.minimum(lam[bz*rank:bz*(rank+1)].cpu(), 1-lam[bz*rank:bz*(rank+1)].clone().flip(0).cpu()).cuda()+np.minimum(1-lam[bz*rank:bz*(rank+1)].cpu(), lam[bz*rank:bz*(rank+1)].clone().flip(0).cpu()).cuda()
->>>>>>> 6e9d9ce71d45157d9169fef14223bd838b6ca29b
+>>>>>>> update â collate.py
         mixloss_mix = self.contrastive_loss(q2_mix, k1_mix, "none", False).mul(1/(1+common)).mean() + \
                       self.contrastive_loss(q2_mix, k1_mix, "none", True).mul(common/(1+common)).mean()
         return source_loss, mixloss_source/2, mixloss_mix/2
