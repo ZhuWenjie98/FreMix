@@ -295,7 +295,6 @@ class MoCo(nn.Module):
                          self.contrastive_loss(q2_mix, k1, "none", True).mul(1.-lam2[bz*rank:bz*(rank+1)]).mean()
 
         common = np.minimum(lam1[bz*rank:bz*(rank+1)].cpu(), 1-lam1[bz*rank:bz*(rank+1)].clone().flip(0).cpu()).cuda()+np.minimum(1-lam2[bz*rank:bz*(rank+1)].cpu(), lam2[bz*rank:bz*(rank+1)].clone().flip(0).cpu()).cuda()
->>>>>>> update â collate.py
         mixloss_mix = self.contrastive_loss(q2_mix, k1_mix, "none", False).mul(1/(1+common)).mean() + \
                       self.contrastive_loss(q2_mix, k1_mix, "none", True).mul(common/(1+common)).mean()
         return source_loss, mixloss_source/2, mixloss_mix/2

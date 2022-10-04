@@ -43,3 +43,4 @@ class Solarize(object):
 
     def __call__(self, x):
         return ImageOps.solarize(x)
+
