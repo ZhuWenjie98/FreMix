@@ -154,7 +154,7 @@ def colorful_spectrum_mix_cpu(img1, img2, alpha, ratio=1.0):
     img12 = np.uint8(np.clip(img12, 0, 255))
 
 
-    return img21, img12, lam    
+    return torch.from_numpy(img21), torch.from_numpy(img12), torch.tensor(lam)    
 
 
     
@@ -229,7 +229,7 @@ class MoCo(nn.Module):
             labels = torch.arange(k.size()[0], dtype=torch.long)[rank*bz:bz*(rank+1)].cuda()
         return nn.CrossEntropyLoss(reduction=redunction)(logits, labels) * (2 * self.T)
 
-    def forward(self, x1, x2, m):
+   # def forward(self, x1, x2, m):
    # def forward(self, x1, x2, x1_mix, x2_mix, lam, m):
     def forward(self, images1, images2, m):
     #def forward(self, x1, x2, x1_mix, x2_mix, lam, m):
@@ -244,11 +244,11 @@ class MoCo(nn.Module):
             oss
         """
         # compute features
-        bz, _,_,_ = x1.shape
-        rank = torch.distributed.get_rank()
+        #bz, _,_,_ = x1.shape
+        #rank = torch.distributed.get_rank()
         #lam = lam.view(lam.shape[0],1,1,1)
         #x1, x2, x1_mix, x2_mix, lam = concat_all_gather(x1), concat_all_gather(x2), concat_all_gather(x1_mix), concat_all_gather(x2_mix), concat_all_gather(lam)
-        x1, x2 = concat_all_gather(x1), concat_all_gather(x2)
+        #x1, x2 = concat_all_gather(x1), concat_all_gather(x2)
         bz,_,_,_,_ = images1[0].shape
         rank = torch.distributed.get_rank()
         #lam = lam.view(lam.shape[0],1,1,1)
@@ -264,8 +264,8 @@ class MoCo(nn.Module):
             x1, x2 = x2, x1
        # x1_mix = x1_mix.half()
        # x2_mix = x2_mix.half()
-        x1_mix, lam, new_lam = datamixing(x1.clone(), None)
-        x2_mix, lam, new_lam = datamixing(x2.clone(), lam)
+        #x1_mix, lam, new_lam = datamixing(x1.clone(), None)
+        #x2_mix, lam, new_lam = datamixing(x2.clone(), lam)
         #x1_mix = x1_mix.half()
         #x2_mix = x2_mix.half()
         #x1_mix, lam, new_lam = datamixing(x1.clone(), None)
@@ -282,11 +282,12 @@ class MoCo(nn.Module):
         source_loss = self.contrastive_loss(q1, k2, "mean", False)
        # if new_lam is not None:
        #     lam = new_lam
-        lam = lam.squeeze()
-        mixloss_source = self.contrastive_loss(q2_mix, k1, "none", False).mul(lam[bz*rank:bz*(rank+1)]).mean() + \
-                         self.contrastive_loss(q2_mix, k1, "none", True).mul(1.-lam[bz*rank:bz*(rank+1)]).mean()
+        lam1 = lam1.squeeze()
+        lam2 = lam2.squeeze()
+        mixloss_source = self.contrastive_loss(q2_mix, k1, "none", False).mul(lam2[bz*rank:bz*(rank+1)]).mean() + \
+                         self.contrastive_loss(q2_mix, k1, "none", True).mul(1.-lam2[bz*rank:bz*(rank+1)]).mean()
 
-        common = np.minimum(lam[bz*rank:bz*(rank+1)].cpu(), 1-lam[bz*rank:bz*(rank+1)].clone().flip(0).cpu()).cuda()+np.minimum(1-lam[bz*rank:bz*(rank+1)].cpu(), lam[bz*rank:bz*(rank+1)].clone().flip(0).cpu()).cuda()
+        common = np.minimum(lam1[bz*rank:bz*(rank+1)].cpu(), 1-lam1[bz*rank:bz*(rank+1)].clone().flip(0).cpu()).cuda()+np.minimum(1-lam2[bz*rank:bz*(rank+1)].cpu(), lam2[bz*rank:bz*(rank+1)].clone().flip(0).cpu()).cuda()
         #if new_lam is not None:
         #    lam = new_lam
         lam1 = lam1.squeeze()

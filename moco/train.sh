@@ -2,7 +2,6 @@
 python main_moco.py \
 	  -a vit_small \
 	   -b 1024 \
-	   --workers 64 \
 	   --workers 16 \
 	    --optimizer=adamw --lr=1.5e-4 --weight-decay=.1 \
 	      --epochs=300 --warmup-epochs=40 \
