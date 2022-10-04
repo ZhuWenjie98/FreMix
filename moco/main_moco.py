@@ -15,6 +15,7 @@ import shutil
 import time
 import warnings
 from functools import partial
+
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -314,6 +315,7 @@ def main_worker(gpu, ngpus_per_node, args):
                     'optimizer' : optimizer.state_dict(),
                     'scaler': scaler.state_dict(),
                 }, is_best=False, filename='/code/save/FreMix/pretrained/AmpMix_gpu_80ep/checkpoint_%04d.pth.tar' % epoch)
+                }, is_best=False, filename='/code/save/FreMix/pretrained/AmpMix/checkpoint_%04d.pth.tar' % epoch)
 
     if args.rank == 0:
         summary_writer.close()
@@ -352,6 +354,13 @@ def train(train_loader, model, optimizer, scaler, summary_writer, epoch, args):
             #images[2] = images[2].cuda(args.gpu, non_blocking=True)
             #images[3] = images[3].cuda(args.gpu, non_blocking=True)
             #lam = images[4].cuda(args.gpu, non_blocking=True)
+
+        if args.gpu is not None:
+            images[0] = images[0].cuda(args.gpu, non_blocking=True)
+            images[1] = images[1].cuda(args.gpu, non_blocking=True)
+           # images[2] = images[2].cuda(args.gpu, non_blocking=True)
+           # images[3] = images[3].cuda(args.gpu, non_blocking=True)
+           # lam = images[4].cuda(args.gpu, non_blocking=True)
         # compute output
         optimizer.zero_grad()
         with torch.cuda.amp.autocast(True):
@@ -361,6 +370,9 @@ def train(train_loader, model, optimizer, scaler, summary_writer, epoch, args):
         source_losses.update(source_loss.item(), images[0][0].size(0))
         mixsource_losses.update(mixloss_source.item(), images[0][0].size(0))
         mixmix_losses.update(mixloss_mix.item(), images[0][0].size(0))
+        source_losses.update(source_loss.item(), images[0].size(0))
+        mixsource_losses.update(mixloss_source.item(), images[0].size(0))
+        mixmix_losses.update(mixloss_mix.item(), images[0].size(0))
 
         if args.rank == 0:
             summary_writer.add_scalar("source loss", source_loss.item(), epoch * iters_per_epoch + i)

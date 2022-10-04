@@ -325,6 +325,7 @@ def main_worker(gpu, ngpus_per_node, args):
             }, is_best,
             filename='/code/save/FreMix/eval/AmpMix_80ep/checkpoint_%04d.pth.tar' % epoch
             )
+            }, is_best)
             if epoch == args.start_epoch:
                 sanity_check(model.state_dict(), args.pretrained, linear_keyword)
 
