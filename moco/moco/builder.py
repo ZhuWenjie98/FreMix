@@ -255,6 +255,8 @@ class MoCo(nn.Module):
         #x1, x2, x1_mix, x2_mix, lam = concat_all_gather(x1), concat_all_gather(x2), concat_all_gather(x1_mix), concat_all_gather(x2_mix), concat_all_gather(lam)
         x1, x2, x1_mix, x2_mix = images1[0][:,0,:,:,:], images2[0][:,0,:,:,:], images1[0][:,1,:,:,:], images2[0][:,1,:,:,:]
         lam1, lam2 = images1[1], images2[1] 
+        print("lam1",lam1[0:5])
+        print("lam2",lam2[0:5])
         x1, x2, x1_mix, x2_mix, lam1, lam2 = x1.contiguous(), x2.contiguous(), x1_mix.contiguous(), x2_mix.contiguous(), lam1.contiguous(), lam2.contiguous()
         x1, x2, x1_mix, x2_mix = concat_all_gather(x1), concat_all_gather(x2), concat_all_gather(x1_mix), concat_all_gather(x2_mix)
         lam1, lam2 = concat_all_gather(lam1), concat_all_gather(lam2)

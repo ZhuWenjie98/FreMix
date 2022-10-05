@@ -33,6 +33,7 @@ from torch.utils.tensorboard import SummaryWriter
 import moco.builder
 import moco.loader
 import moco.optimizer
+import moco.collate
 
 import vits
 
@@ -296,7 +297,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
 
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
+        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None), collate_fn = moco.collate.default_collate,
         num_workers=args.workers, pin_memory=True, sampler=train_sampler, drop_last=True)
 
     for epoch in range(args.start_epoch, args.epochs):
