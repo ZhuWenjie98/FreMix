@@ -349,9 +349,8 @@ def train(train_loader, model, optimizer, scaler, summary_writer, epoch, args):
         if args.moco_m_cos:
             moco_m = adjust_moco_momentum(epoch + i / iters_per_epoch, args)
         if args.gpu is not None:
-            images[0][0] = images[0][0].cuda(args.gpu, non_blocking=True)
-            images[0][1] = images[0][1].cuda(args.gpu, non_blocking=True)
-            
+            images[0] = images[0].cuda(args.gpu, non_blocking=True)
+            images[1] = images[1].cuda(args.gpu, non_blocking=True)
             #images[2] = images[2].cuda(args.gpu, non_blocking=True)
             #images[3] = images[3].cuda(args.gpu, non_blocking=True)
             #lam = images[4].cuda(args.gpu, non_blocking=True)

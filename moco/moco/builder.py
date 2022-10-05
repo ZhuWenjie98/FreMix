@@ -252,12 +252,10 @@ class MoCo(nn.Module):
         #x1, x2 = concat_all_gather(x1), concat_all_gather(x2)
         bz,_,_,_,_ = images1.shape #16*1*2*3*224*224
         rank = torch.distributed.get_rank()
-        print("images1.shape",images1.shape)
     
         #lam = lam.view(lam.shape[0],1,1,1)
         #x1, x2, x1_mix, x2_mix, lam = concat_all_gather(x1), concat_all_gather(x2), concat_all_gather(x1_mix), concat_all_gather(x2_mix), concat_all_gather(lam)
         x1, x2, x1_mix, x2_mix = images1[:,0,:,:,:], images2[:,0,:,:,:], images1[:,1,:,:,:], images2[:,1,:,:,:]
-        print("lam",lam[0:5])
 
         x1, x2, x1_mix, x2_mix, lam = x1.contiguous(), x2.contiguous(), x1_mix.contiguous(), x2_mix.contiguous(), lam.contiguous()
         x1, x2, x1_mix, x2_mix = concat_all_gather(x1), concat_all_gather(x2), concat_all_gather(x1_mix), concat_all_gather(x2_mix)
@@ -290,7 +288,8 @@ class MoCo(nn.Module):
         mixloss_source = self.contrastive_loss(q2_mix, k1, "none", False).mul(lam[bz*rank:bz*(rank+1)]).mean() + \
                          self.contrastive_loss(q2_mix, k1, "none", True).mul(1.-lam[bz*rank:bz*(rank+1)]).mean()
 
-        common = np.minimum(lam[bz*rank:bz*(rank+1)].cpu(), 1-lam[bz*rank:bz*(rank+1)].clone().flip(0).cpu()).cuda()+np.minimum(1-lam[bz*rank:bz*(rank+1)].cpu(), lam[bz*rank:bz*(rank+1)].clone().flip(0).cpu()).cuda()
+        common = np.minimum(lam[bz*rank:bz*(rank+1)].cpu(), 1-lam[bz*rank:bz*(rank+1)].clone().flip(0).cpu()).cuda()
+        +np.minimum(1-lam[bz*rank:bz*(rank+1)].cpu(), lam[bz*rank:bz*(rank+1)].clone().flip(0).cpu()).cuda()
         mixloss_mix = self.contrastive_loss(q2_mix, k1_mix, "none", False).mul(1/(1+common)).mean() + \
                       self.contrastive_loss(q2_mix, k1_mix, "none", True).mul(common/(1+common)).mean()
         return source_loss, mixloss_source/2, mixloss_mix/2
