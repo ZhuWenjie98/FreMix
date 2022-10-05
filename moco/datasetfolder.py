@@ -154,7 +154,7 @@ class DatasetFolder(VisionDataset):
             sample = self.transform(sample)
         if self.target_transform is not None:
             target = self.target_transform(target)
-
+            
         return sample, target
 
     def __len__(self) -> int:

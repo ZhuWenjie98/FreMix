@@ -45,7 +45,6 @@ def default_collate(batch):
     bz = len(batch)
     elem = batch[0]
     elem_type = type(elem)
-    lams = torch.zeros(bz)
     if isinstance(elem, torch.Tensor):
         out = None
         if torch.utils.data.get_worker_info() is not None:
@@ -54,19 +53,14 @@ def default_collate(batch):
             numel = sum([x.numel() for x in batch])
             storage = elem.storage()._new_shared(numel)
             out = elem.new(storage)
-        images_mix = torch.stack(batch, 0, out=out)    
-        for i, img1 in enumerate(batch):
-            images_mix[i],images_mix[bz-i-1], lams[i] = colorful_spectrum_mix_cpu(img1, batch[bz-i-1], 1, 1)
-        batch_tensor = torch.stack(list(batch))    
-        images_concat = torch.stack((batch_tensor, images_mix),1) 
-        return [images_concat, lams]
+        return torch.stack(batch, 0, out=out)
     elif elem_type.__module__ == 'numpy' and elem_type.__name__ != 'str_' \
-            and elem_type.__name__ != 'string_':
+            and elem_type.__name__!= 'string_':
         if elem_type.__name__ == 'ndarray' or elem_type.__name__ == 'memmap':
             # array of string classes and object
             if np_str_obj_array_pattern.search(elem.dtype.str) is not None:
                 raise TypeError(default_collate_err_msg_format.format(elem.dtype))
-
+             
             return default_collate([torch.as_tensor(b) for b in batch])
         elif elem.shape == ():  # scalars
             return torch.as_tensor(batch)
@@ -87,14 +81,51 @@ def default_collate(batch):
         if not all(len(elem) == elem_size for elem in it):
             raise RuntimeError('each element in list of batch should be of equal size')
         transposed = zip(*batch)
-        return [default_collate(samples) for samples in transposed]
+        if len(elem[0]) == 3: # elem[0]=3 means that the batch is 16*2*3*224*224
+              result = [] 
+              for samples in transposed:  #some samples are 16*2*image some are 16*int, we need judge
+                  judge = samples[0]
+                  if isinstance(judge, int):
+                     result.append(default_collate(samples)) 
+                  else:
+                     lam = np.random.uniform(0, 1)
+                     result.append(images_collate(samples, lam))
+              return result
+        return [default_collate(samples) for samples in transposed] 
+
 
     raise TypeError(default_collate_err_msg_format.format(elem_type))
+
+def images_collate(batch, lam):
+    r"""Puts each data field into a tensor with outer dimension batch size"""
+    bz = len(batch)
+    elem = batch[0]
+    elem_type = type(elem)
+    if isinstance(elem, torch.Tensor):
+        out = None
+        if torch.utils.data.get_worker_info() is not None:
+            # If we're in a background process, concatenate directly into a
+            # shared memory tensor to avoid an extra copy
+            numel = sum([x.numel() for x in batch])
+            storage = elem.storage()._new_shared(numel)
+            out = elem.new(storage)
+            lams = torch.zeros(bz)
+            images_mix = torch.stack(batch, 0, out=out)
+            for i, img1 in enumerate(batch):
+                images_mix[i],images_mix[bz-i-1], lams[i] = colorful_spectrum_mix_cpu(img1, batch[bz-i-1], lam, 1)
+            batch_tensor = torch.stack(batch, 0, out=out)
+            images_concat = torch.stack((batch_tensor, images_mix),1)
+        return [images_concat, lams]
+    #else:
+    #   return images_collate(default_collate(batch), lam)
 
 
 def colorful_spectrum_mix_cpu(img1, img2, alpha, ratio=1.0):
     """Input image size: ndarray of [C, H, W ]"""
-    lam = np.random.uniform(0, alpha)
+    if alpha == None:
+       lam = np.random.uniform(0, alpha)
+    else:
+       lam = alpha
     assert img1.shape == img2.shape
     c, h, w = img1.shape
     #ratio = torch.tensor(ratio, dtype=torch.int8)

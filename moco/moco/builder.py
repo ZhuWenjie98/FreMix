@@ -280,14 +280,6 @@ class MoCo(nn.Module):
             k1_mix = self.momentum_encoder(x1_mix[bz*rank:bz*(rank+1)])
             k2 = self.momentum_encoder(x2[bz*rank:bz*(rank+1)])
         source_loss = self.contrastive_loss(q1, k2, "mean", False)
-       # if new_lam is not None:
-       #     lam = new_lam
-        lam1 = lam1.squeeze()
-        lam2 = lam2.squeeze()
-        mixloss_source = self.contrastive_loss(q2_mix, k1, "none", False).mul(lam2[bz*rank:bz*(rank+1)]).mean() + \
-                         self.contrastive_loss(q2_mix, k1, "none", True).mul(1.-lam2[bz*rank:bz*(rank+1)]).mean()
-
-        common = np.minimum(lam1[bz*rank:bz*(rank+1)].cpu(), 1-lam1[bz*rank:bz*(rank+1)].clone().flip(0).cpu()).cuda()+np.minimum(1-lam2[bz*rank:bz*(rank+1)].cpu(), lam2[bz*rank:bz*(rank+1)].clone().flip(0).cpu()).cuda()
         #if new_lam is not None:
         #    lam = new_lam
         lam1 = lam1.squeeze()

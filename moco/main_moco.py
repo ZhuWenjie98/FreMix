@@ -294,6 +294,7 @@ def main_worker(gpu, ngpus_per_node, args):
     else:
         train_sampler = None
 
+
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
         num_workers=args.workers, pin_memory=True, sampler=train_sampler, drop_last=True)
@@ -357,9 +358,7 @@ def train(train_loader, model, optimizer, scaler, summary_writer, epoch, args):
         #if args.gpu is not None:
             #images[0] = images[0].cuda(args.gpu, non_blocking=True)
             #images[1] = images[1].cuda(args.gpu, non_blocking=True)
-           # images[2] = images[2].cuda(args.gpu, non_blocking=True)
-           # images[3] = images[3].cuda(args.gpu, non_blocking=True)
-           # lam = images[4].cuda(args.gpu, non_blocking=True)
+         
         # compute output
         optimizer.zero_grad()
         with torch.cuda.amp.autocast(True):
