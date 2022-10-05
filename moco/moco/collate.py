@@ -81,41 +81,47 @@ def default_collate(batch):
         if not all(len(elem) == elem_size for elem in it):
             raise RuntimeError('each element in list of batch should be of equal size')
         transposed = zip(*batch)
-        if len(elem[0]) == 3: # elem[0]=3 means that the batch is 16*2*3*224*224
-              result = [] 
-              for samples in transposed:  #some samples are 16*2*image some are 16*int, we need judge
+        if isinstance(elem[0],list) and len(elem[0][0]) == 3: # elem[0]=3 means that the batch is 16*2*3*224*224
+                result = [] 
+                for samples in transposed:  #some samples are 16*2*image some are 16*int, we need judge
                   judge = samples[0]
                   if isinstance(judge, int):
-                     result.append(default_collate(samples)) 
-                  else:
-                     lam = np.random.uniform(0, 1)
-                     result.append(images_collate(samples, lam))
-              return result
+                    result.append(default_collate(samples)) 
+                  else:  
+                    lam = np.random.uniform(0, 1, bz)
+                    result.append(images_collate(samples, lam))
+                return result
         return [default_collate(samples) for samples in transposed] 
 
 
     raise TypeError(default_collate_err_msg_format.format(elem_type))
 
 def images_collate(batch, lam):
-    r"""Puts each data field into a tensor with outer dimension batch size"""
+    # input 16*2*3*224*224
+    """Puts each data field into a tensor with outer dimension batch size"""
+    batch = list(batch)
     bz = len(batch)
-    elem = batch[0]
+    elem = batch[0][0]
     elem_type = type(elem)
-    if isinstance(elem, torch.Tensor):
-        out = None
-        if torch.utils.data.get_worker_info() is not None:
+    out = None
+    if torch.utils.data.get_worker_info() is not None:
             # If we're in a background process, concatenate directly into a
             # shared memory tensor to avoid an extra copy
-            numel = sum([x.numel() for x in batch])
-            storage = elem.storage()._new_shared(numel)
-            out = elem.new(storage)
-            lams = torch.zeros(bz)
-            images_mix = torch.stack(batch, 0, out=out)
-            for i, img1 in enumerate(batch):
-                images_mix[i],images_mix[bz-i-1], lams[i] = colorful_spectrum_mix_cpu(img1, batch[bz-i-1], lam, 1)
-            batch_tensor = torch.stack(batch, 0, out=out)
-            images_concat = torch.stack((batch_tensor, images_mix),1)
-        return [images_concat, lams]
+        
+        numel = bz*len(batch[0])*3*224*224
+        storage = elem.storage()._new_shared(numel)
+        out = elem.new(storage)
+        lams = torch.zeros(bz)
+        for i in range(len(batch)):
+            batch[i] = list(batch[i])
+            batch[i] = torch.stack(batch[i],0)
+        images_mix = torch.stack(batch, 0, out=out)
+        for i, img1 in enumerate(batch):
+            images_mix[i][0],images_mix[bz-i-1][0], lams[i] = colorful_spectrum_mix_cpu(img1[0], batch[bz-i-1][0], lam[i], 1)
+            images_mix[i][1],images_mix[bz-i-1][1], lams[i] = colorful_spectrum_mix_cpu(img1[1], batch[bz-i-1][1], lam[i], 1)  
+        batch_tensor = torch.stack(batch, 0, out=out)
+        images_concat = torch.stack((batch_tensor, images_mix),2)   #concat origin and mix at 2-dimension  1-dimension is 2 of different views   
+    return [images_concat, lams]
     #else:
     #   return images_collate(default_collate(batch), lam)
 
