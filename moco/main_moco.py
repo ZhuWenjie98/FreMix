@@ -352,7 +352,6 @@ def train(train_loader, model, optimizer, scaler, summary_writer, epoch, args):
             images[0][0] = images[0][0].cuda(args.gpu, non_blocking=True) #first view
             images[0][1] = images[0][1].cuda(args.gpu, non_blocking=True) #second view
             images[1] = images[1].cuda(args.gpu, non_blocking=True)
-            print("images[1].shape",images[1].shape)
             #images[2] = images[2].cuda(args.gpu, non_blocking=True)
             #images[3] = images[3].cuda(args.gpu, non_blocking=True)
             #lam = images[4].cuda(args.gpu, non_blocking=True)
