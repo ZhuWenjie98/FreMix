@@ -297,7 +297,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
 
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None), collate_fn = moco.collate.default_collate,
+        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None), collate_fn = moco.collate.seq_collate,
         num_workers=args.workers, pin_memory=True, sampler=train_sampler, drop_last=True)
 
     for epoch in range(args.start_epoch, args.epochs):
@@ -349,8 +349,10 @@ def train(train_loader, model, optimizer, scaler, summary_writer, epoch, args):
         if args.moco_m_cos:
             moco_m = adjust_moco_momentum(epoch + i / iters_per_epoch, args)
         if args.gpu is not None:
-            images[0] = images[0].cuda(args.gpu, non_blocking=True)
+            images[0][0] = images[0][0].cuda(args.gpu, non_blocking=True) #first view
+            images[0][1] = images[0][1].cuda(args.gpu, non_blocking=True) #second view
             images[1] = images[1].cuda(args.gpu, non_blocking=True)
+            print("images[1].shape",images[1].shape)
             #images[2] = images[2].cuda(args.gpu, non_blocking=True)
             #images[3] = images[3].cuda(args.gpu, non_blocking=True)
             #lam = images[4].cuda(args.gpu, non_blocking=True)
@@ -363,11 +365,11 @@ def train(train_loader, model, optimizer, scaler, summary_writer, epoch, args):
         optimizer.zero_grad()
         with torch.cuda.amp.autocast(True):
             #source_loss, mixloss_source, mixloss_mix = model(images[0], images[1], images[2], images[3], lam, moco_m)
-            source_loss, mixloss_source, mixloss_mix = model(images[0][:,0,:,:,:,:], images[0][:,1,:,:,:,:], images[1], moco_m)
+            source_loss, mixloss_source, mixloss_mix = model(images[0][0], images[0][1], images[1], moco_m)
         scaler.scale(source_loss+mixloss_source+mixloss_mix).backward()
-        source_losses.update(source_loss.item(), images[0].size(0))
-        mixsource_losses.update(mixloss_source.item(), images[0].size(0))
-        mixmix_losses.update(mixloss_mix.item(), images[0].size(0))
+        source_losses.update(source_loss.item(), images[0][0].size(0))
+        mixsource_losses.update(mixloss_source.item(), images[0][0].size(0))
+        mixmix_losses.update(mixloss_mix.item(), images[0][0].size(0))
 
         if args.rank == 0:
             summary_writer.add_scalar("source loss", source_loss.item(), epoch * iters_per_epoch + i)
