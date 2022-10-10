@@ -323,9 +323,8 @@ def main_worker(gpu, ngpus_per_node, args):
                 'best_acc1': best_acc1,
                 'optimizer' : optimizer.state_dict(),
             }, is_best,
-            filename='/code/save/FreMix/eval/AmpMix_80ep/checkpoint_%04d.pth.tar' % epoch
+            filename='/code/save/FreMix/eval/AmpMix_ep100/checkpoint_%04d.pth.tar' % epoch
             )
-            }, is_best)
             if epoch == args.start_epoch:
                 sanity_check(model.state_dict(), args.pretrained, linear_keyword)
 
