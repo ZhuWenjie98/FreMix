@@ -35,8 +35,8 @@ def extract_feature_pipeline(args):
         pth_transforms.ToTensor(),
         pth_transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
     ])
-    dataset_train = ReturnIndexDataset(os.path.join(args.data_path, "train"), transform=transform)
-    dataset_val = ReturnIndexDataset(os.path.join(args.data_path, "val"), transform=transform)
+    dataset_train = ReturnIndexDataset(os.path.join(args.data_path, "train_img"), transform=transform)
+    dataset_val = ReturnIndexDataset(os.path.join(args.data_path, "val_img"), transform=transform)
     sampler = torch.utils.data.DistributedSampler(dataset_train, shuffle=False)
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train,
