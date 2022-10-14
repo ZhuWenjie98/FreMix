@@ -25,7 +25,10 @@ from torchvision import models as torchvision_models
 
 import utils
 import vision_transformer as vits
+<<<<<<< HEAD
 import logging
+=======
+>>>>>>> 3c5d1e0349108598d77558f5a87630fe0ce3dae2
 
 
 def extract_feature_pipeline(args):
@@ -236,6 +239,7 @@ if __name__ == '__main__':
             test_labels = test_labels.cuda()
 
         print("Features are ready!\nStart the k-NN classification.")
+<<<<<<< HEAD
         logging.basicConfig(filename="knn.log", 
 					format='%(asctime)s %(message)s', 
 					filemode='a')
@@ -245,9 +249,14 @@ if __name__ == '__main__':
         file_handler.setLevel(level=logging.INFO)
         logger.addHandler(file_handler)  
         logger.info('%s', args.pretrained_weights) 
+=======
+>>>>>>> 3c5d1e0349108598d77558f5a87630fe0ce3dae2
         for k in args.nb_knn:
             top1, top5 = knn_classifier(train_features, train_labels,
                 test_features, test_labels, k, args.temperature)
             print(f"{k}-NN classifier result: Top1: {top1}, Top5: {top5}")
+<<<<<<< HEAD
             logger.info('%d-NN classifier result: Top1: %f, Top5: %f', k, top1, top5 ) 
+=======
+>>>>>>> 3c5d1e0349108598d77558f5a87630fe0ce3dae2
     dist.barrier()

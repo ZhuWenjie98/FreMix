@@ -81,7 +81,11 @@ def load_pretrained_weights(model, pretrained_weights, checkpoint_key, model_nam
                     # remove prefix
                     state_dict[k[len("module.base_encoder."):]] = state_dict[k]
                 # delete renamed or unused k
+<<<<<<< HEAD
                 del state_dict[k]        
+=======
+                del state_dict[k]
+>>>>>>> 3c5d1e0349108598d77558f5a87630fe0ce3dae2
         # remove `module.` prefix
         #state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
         # remove `backbone.` prefix induced by multicrop wrapper
