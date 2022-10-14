@@ -314,7 +314,7 @@ def main_worker(gpu, ngpus_per_node, args):
                     'state_dict': model.state_dict(),
                     'optimizer' : optimizer.state_dict(),
                     'scaler': scaler.state_dict(),
-                }, is_best=False, filename='/code/save/FreMix/pretrained/AmpMix_300ep/checkpoint_%04d.pth.tar' % epoch)
+                }, is_best=False, filename='/code/save/FreMix/pretrained/PhaseMix_300ep/checkpoint_%04d.pth.tar' % epoch)
 
     if args.rank == 0:
         summary_writer.close()

@@ -14,6 +14,7 @@ import random
 import shutil
 import time
 import warnings
+import logging
 
 import torch
 import torch.nn as nn
@@ -85,16 +86,29 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
                          'N processes per node, which has N GPUs. This is the '
                          'fastest way to use PyTorch for either single node or '
                          'multi node data parallel training')
+parser.add_argument('--save-dir', default='', type=str,
+                    help='path to save checkpoint')                              
 
 # additional configs:
 parser.add_argument('--pretrained', default='', type=str,
                     help='path to moco pretrained checkpoint')
+               
 
 best_acc1 = 0
+logger=logging.getLogger()
 
 
 def main():
     args = parser.parse_args()
+    logging.basicConfig(filename=args.save_dir+"log.txt", 
+					format='%(asctime)s %(message)s', 
+					filemode='a')  
+    global logger                
+    logger.setLevel(level=logging.INFO)   
+    file_handler = logging.FileHandler(args.save_dir+'log.txt')
+    file_handler.setLevel(level=logging.INFO)
+    logger.addHandler(file_handler) 
+    logger.info('%s', args.pretrained)
 
     if args.seed is not None:
         random.seed(args.seed)
@@ -170,6 +184,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # load from pre-trained, before DistributedDataParallel constructor
     if args.pretrained:
+
         if os.path.isfile(args.pretrained):
             print("=> loading checkpoint '{}'".format(args.pretrained))
             checkpoint = torch.load(args.pretrained, map_location="cpu")
@@ -183,7 +198,6 @@ def main_worker(gpu, ngpus_per_node, args):
                     state_dict[k[len("module.base_encoder."):]] = state_dict[k]
                 # delete renamed or unused k
                 del state_dict[k]
-
             args.start_epoch = 0
             msg = model.load_state_dict(state_dict, strict=False)
             assert set(msg.missing_keys) == {"%s.weight" % linear_keyword, "%s.bias" % linear_keyword}
@@ -308,7 +322,15 @@ def main_worker(gpu, ngpus_per_node, args):
         train(train_loader, model, criterion, optimizer, epoch, args)
 
         # evaluate on validation set
-        acc1 = validate(val_loader, model, criterion, args)
+        acc1, acc5 = validate(val_loader, model, criterion, args)
+        logging.basicConfig(filename=args.save_dir+"log.txt", 
+					format='%(asctime)s %(message)s', 
+					filemode='a')   
+        logger.setLevel(level=logging.INFO)     
+        file_handler = logging.FileHandler(args.save_dir+'log.txt')
+        file_handler.setLevel(level=logging.INFO)
+        logger.addHandler(file_handler)          
+        logger.info('* Acc@1 %f Acc@5 %f', acc1, acc5) 
 
         # remember best acc@1 and save checkpoint
         is_best = acc1 > best_acc1
@@ -323,7 +345,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'best_acc1': best_acc1,
                 'optimizer' : optimizer.state_dict(),
             }, is_best,
-            filename='/code/save/FreMix/eval/AmpMix_ep100/checkpoint_%04d.pth.tar' % epoch
+            filename=args.save_dir+'/checkpoint_%04d.pth.tar' % epoch
             )
             if epoch == args.start_epoch:
                 sanity_check(model.state_dict(), args.pretrained, linear_keyword)
@@ -422,9 +444,10 @@ def validate(val_loader, model, criterion, args):
 
         # TODO: this should also be done with the ProgressMeter
         print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
-              .format(top1=top1, top5=top5))
+              .format(top1=top1, top5=top5))   
+             
 
-    return top1.avg
+    return top1.avg, top5.avg
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
