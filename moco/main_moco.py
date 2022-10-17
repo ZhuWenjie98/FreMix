@@ -117,6 +117,10 @@ parser.add_argument('--warmup-epochs', default=10, type=int, metavar='N',
 parser.add_argument('--crop-min', default=0.08, type=float,
                     help='minimum scale for random cropping (default: 0.08)')
 
+# add mix strategy
+parser.add_argument('--mix-strategy', default='', type=str, metavar='Startegy',
+                    help='mix strategy')                    
+
 
 def main():
     args = parser.parse_args()
@@ -308,14 +312,60 @@ def main_worker(gpu, ngpus_per_node, args):
         if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                 and args.rank == 0): # only the first GPU saves checkpoint
             if (epoch+1)%5==0:
-                save_checkpoint({
+                if args.mix_strategy == 'amp_mixup':
+                   save_checkpoint({
                     'epoch': epoch + 1,
                     'arch': args.arch,
                     'state_dict': model.state_dict(),
                     'optimizer' : optimizer.state_dict(),
                     'scaler': scaler.state_dict(),
-                }, is_best=False, filename='/code/save/FreMix/pretrained/PhaseMix_300ep/checkpoint_%04d.pth.tar' % epoch)
+                }, is_best=False, filename='/code/save/FreMix/pretrained/Amp_mixup_ep100/checkpoint_%04d.pth.tar' % epoch) 
 
+                elif args.mix_strategy == 'amp_cutmix':
+                    save_checkpoint({
+                    'epoch': epoch + 1,
+                    'arch': args.arch,
+                    'state_dict': model.state_dict(),
+                    'optimizer' : optimizer.state_dict(),
+                    'scaler': scaler.state_dict(),
+                }, is_best=False, filename='/code/save/FreMix/pretrained/Amp_cutmix_ep100/checkpoint_%04d.pth.tar' % epoch) 
+
+                elif args.mix_strategy == 'amp_cut_mixup': 
+                    save_checkpoint({
+                    'epoch': epoch + 1,
+                    'arch': args.arch,
+                    'state_dict': model.state_dict(),
+                    'optimizer' : optimizer.state_dict(),
+                    'scaler': scaler.state_dict(),
+                }, is_best=False, filename='/code/save/FreMix/pretrained/Amp_cut_mixup_ep300/checkpoint_%04d.pth.tar' % epoch) 
+
+                elif args.mix_strategy == 'phase_mixup':
+                   save_checkpoint({
+                    'epoch': epoch + 1,
+                    'arch': args.arch,
+                    'state_dict': model.state_dict(),
+                    'optimizer' : optimizer.state_dict(),
+                    'scaler': scaler.state_dict(),
+                }, is_best=False, filename='/code/save/FreMix/pretrained/Phase_mixup_ep100/checkpoint_%04d.pth.tar' % epoch) 
+
+                elif args.mix_strategy == 'phase_cutmix':
+                    save_checkpoint({
+                    'epoch': epoch + 1,
+                    'arch': args.arch,
+                    'state_dict': model.state_dict(),
+                    'optimizer' : optimizer.state_dict(),
+                    'scaler': scaler.state_dict(),
+                }, is_best=False, filename='/code/save/FreMix/pretrained/Phase_cutmix_ep100/checkpoint_%04d.pth.tar' % epoch) 
+
+                elif args.mix_strategy == 'phase_cut_mixup': 
+                    save_checkpoint({
+                    'epoch': epoch + 1,
+                    'arch': args.arch,
+                    'state_dict': model.state_dict(),
+                    'optimizer' : optimizer.state_dict(),
+                    'scaler': scaler.state_dict(),
+                }, is_best=False, filename='save/FreMix/pretrained/Phase_cut_mixup_ep300/checkpoint_%04d.pth.tar' % epoch) 
+            
     if args.rank == 0:
         summary_writer.close()
 
@@ -357,7 +407,7 @@ def train(train_loader, model, optimizer, scaler, summary_writer, epoch, args):
         optimizer.zero_grad()
         with torch.cuda.amp.autocast(True):
             #source_loss, mixloss_source, mixloss_mix = model(images[0], images[1], images[2], images[3], lam, moco_m)
-            source_loss, mixloss_source, mixloss_mix = model(images[0], images[1], moco_m)
+            source_loss, mixloss_source, mixloss_mix = model(images[0], images[1], moco_m, args.mix_strategy)
         scaler.scale(source_loss+mixloss_source+mixloss_mix).backward()
         source_losses.update(source_loss.item(), images[0].size(0))
         mixsource_losses.update(mixloss_source.item(), images[0].size(0))
